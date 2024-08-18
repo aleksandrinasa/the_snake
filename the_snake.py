@@ -8,7 +8,7 @@ GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 
 # Центральная точка экрана
-CENTRAL_POSITION = (GRID_WIDTH // 2, GRID_HEIGHT // 2)
+CENTRAL_POSITION = (GRID_WIDTH // 2 - 1, GRID_HEIGHT // 2 - 1)
 # Направления движения:
 UP = (0, -1)
 DOWN = (0, 1)
@@ -26,6 +26,9 @@ APPLE_COLOR = (255, 0, 0)
 
 # Цвет змейки
 SNAKE_COLOR = (0, 255, 0)
+
+# Цвет камней
+STONE_COLOR = (255, 255, 0)
 
 # Цвет для объектов по умолчанию
 WHITE_COLOR = (255, 255, 255)
@@ -58,6 +61,13 @@ class GameObject:
 
     def draw(self):
         """Метод отрисовки объекта. Должен быть реализован в подклассе."""
+        raise NotImplementedError('This method is not implemented')
+
+    def clear(self):
+        """
+        Метод очистки объекта с игрового поля.
+        Должен быть реализован в подклассе.
+        """
         raise NotImplementedError('This method is not implemented')
 
 
@@ -95,6 +105,55 @@ class Apple(GameObject):
         pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
 
 
+class Stones(GameObject):
+    """Класс, представляющий группу камней в игре."""
+
+    def __init__(self, body_color=STONE_COLOR):
+        """
+        Инициализация объекта Stones с заданным цветом.
+        Аргументы:
+            body_color (tuple): Цвет камней в формате RGB.
+        """
+        super().__init__(body_color)
+        self.positions = []
+
+    def add_generated_position(self, occupied_positions):
+        """
+        Добавляет сгенерированную позицию камня, которая не пересекается
+        с занятыми позициями.
+        Аргументы:
+            occupied_positions (list): Список занятых позиций, с которыми
+        не должно быть пересечений.
+        """
+        while True:
+            supposed_position = randint(0, 31), randint(0, 23)
+            if supposed_position not in occupied_positions + self.positions:
+                self.positions.append(supposed_position)
+                break
+
+    def draw(self):
+        """Метод отрисовки группы камней на экране с помощью Pygame."""
+        for position in self.positions:
+            rect = (pygame.Rect((position[0] * GRID_SIZE,
+                                position[1] * GRID_SIZE),
+                                (GRID_SIZE, GRID_SIZE)))
+            pygame.draw.rect(screen, self.body_color, rect)
+            pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+
+    def clear(self):
+        """
+        Метод очистки камней с экрана. Убирает все нарисованные камни
+        и очищает список позиций.
+        """
+        for position in self.positions:
+            rect = (pygame.Rect((position[0] * GRID_SIZE,
+                                 position[1] * GRID_SIZE),
+                                (GRID_SIZE, GRID_SIZE))
+                    )
+            pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, rect)
+        self.positions = []
+
+
 class Snake(GameObject):
     """Класс, представляющий змею в игре."""
 
@@ -107,7 +166,7 @@ class Snake(GameObject):
         """
         super().__init__(body_color)
         self.positions = positions
-        self.length = len(self.positions)
+        self.length = 1
         self.direction = RIGHT
         self.next_direction = None
         self.last = None
@@ -168,18 +227,15 @@ class Snake(GameObject):
         )
 
     def move(self):
-        """Метод перемещения змеи. Проверяет столкновение с телом змеи."""
-        if self.get_new_head_position in self.positions:
-            self.clear()
-            self.reset()
-        else:
-            self.positions.insert(0, self.get_new_head_position)
-            self.update_direction()
+        """Метод перемещения змеи."""
+        self.positions.insert(0, self.get_new_head_position)
+        self.update_direction()
 
     def reset(self):
         """Метод сброса состояния змеи в начальное состояние."""
-        self.positions = [CENTRAL_POSITION, None]
+        self.positions = [CENTRAL_POSITION]
         self.direction = RIGHT
+        self.length = 1
 
 
 def handle_keys(game_object):
@@ -212,20 +268,32 @@ def handle_keys(game_object):
 
 def main():
     """
-    Основная функция игры. Инициализирует Pygame, создает объекты змеи и
-    яблока, и запускает основной игровой цикл.
+    Основная функция игры. Инициализирует Pygame, создает объекты змеи,
+    яблока, камней и запускает основной игровой цикл.
     """
     pygame.init()
     snake = Snake()
     apple = Apple()
+    stones = Stones()
     apple.position = apple.randomize_position(snake.positions)
     while True:
         snake.draw()
         apple.draw()
+        stones.draw()
         clock.tick(SPEED)
         if handle_keys(snake):
             if snake.get_head_position == apple.position:
-                apple.position = apple.randomize_position(snake.positions)
+                apple.position = apple.randomize_position(
+                    snake.positions + stones.positions)
+                snake.length += 1
+                if snake.length % 3 == 0:
+                    stones.add_generated_position(
+                        snake.positions + [apple.position])
+            elif snake.get_head_position in stones.positions \
+                    + snake.positions[1:]:
+                snake.clear()
+                snake.reset()
+                stones.clear()
             else:
                 snake.last = snake.positions.pop()
         pygame.display.flip()
