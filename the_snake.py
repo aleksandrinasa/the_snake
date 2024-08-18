@@ -105,7 +105,7 @@ class Snake(GameObject):
         - body_color (цвет змеи, по умолчанию установлен)
         - positions (список координат, по умолчанию центральная позиция)
         """
-        self.body_color = body_color
+        super().__init__(body_color)
         self.positions = positions
         self.length = len(self.positions)
         self.direction = RIGHT
