@@ -49,33 +49,14 @@ class GameObject:
         """
         self.body_color = body_color
         self.position = position
-        self.positions = []
-        self.reset()
-
-    def randomize_position(self, occupied_positions):
-        """
-        Метод для случайного определения позиции объекта на игровом экране.
-        Параметры:
-        - occupied_positions (координаты, занятые змейкой)
-        Возвращает:
-        - позиция (tuple) - Случайная координата в пределах игрового поля при
-        условии, что оно не занято другими объектами.
-        """
-        while True:
-            supposed_position = randint(
-                GRID_0, GRID_WIDTH - 1), randint(GRID_0, GRID_HEIGHT - 1)
-            if supposed_position not in occupied_positions + self.positions:
-                self.position = supposed_position
-                break
 
     def draw(self):
-        """Метод отрисовки объекта."""
-        for position in self.positions:
-            rect = (pg.Rect((position[0] * GRID_SIZE,
-                    position[1] * GRID_SIZE),
-                    (GRID_SIZE, GRID_SIZE)))
-            pg.draw.rect(screen, self.body_color, rect)
-            pg.draw.rect(screen, BORDER_COLOR, rect, 1)
+        """
+        Метод отрисовки объекта.
+        Должен быть определен в подклассе.
+        """
+        raise NotImplementedError(
+            f"This method is not defined in class {self.__class__}")
 
     def clear(self):
         """Метод очистки позиций объектов с экрана."""
@@ -86,13 +67,6 @@ class GameObject:
                     )
             pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, rect)
         self.positions = []
-
-    def reset(self):
-        """
-        Метод для сбрасывания объекта до начального состояния.
-        Должен быть определен в подклассе.
-        """
-        pass
 
 
 class Apple(GameObject):
@@ -107,12 +81,28 @@ class Apple(GameObject):
         - позиция (tuple) - Случайная координата в пределах игрового поля при
         условии, что оно не занято другими объектами.
         """
-        super().randomize_position(occupied_positions)
-        self.positions = [self.position]
+        while True:
+            supposed_position = randint(
+                GRID_0, GRID_WIDTH - 1), randint(GRID_0, GRID_HEIGHT - 1)
+            if supposed_position not in occupied_positions:
+                self.position = supposed_position
+                break
+
+    def draw(self):
+        """Метод отрисовки яблока."""
+        rect = (pg.Rect((self.position[0] * GRID_SIZE,
+                self.position[1] * GRID_SIZE),
+                (GRID_SIZE, GRID_SIZE)))
+        pg.draw.rect(screen, self.body_color, rect)
+        pg.draw.rect(screen, BORDER_COLOR, rect, 1)
 
 
 class Stones(GameObject):
     """Класс, представляющий группу камней в игре."""
+
+    def __init__(self, body_color=STONE_COLOR):
+        super().__init__(body_color)
+        self.positions = []
 
     def randomize_position(self, occupied_positions):
         """
@@ -123,12 +113,29 @@ class Stones(GameObject):
         - позиция (tuple) - Случайная координата в пределах игрового поля при
         условии, что оно не занято другими объектами.
         """
-        super().randomize_position(occupied_positions)
-        self.positions.append(self.position)
+        while True:
+            supposed_position = randint(
+                GRID_0, GRID_WIDTH - 1), randint(GRID_0, GRID_HEIGHT - 1)
+            if supposed_position not in occupied_positions + self.positions:
+                self.positions.append(supposed_position)
+                break
+
+    def draw(self):
+        """Метод отрисовки камней."""
+        for position in self.positions:
+            rect = (pg.Rect((position[0] * GRID_SIZE,
+                    position[1] * GRID_SIZE),
+                    (GRID_SIZE, GRID_SIZE)))
+            pg.draw.rect(screen, self.body_color, rect)
+            pg.draw.rect(screen, BORDER_COLOR, rect, 1)
 
 
 class Snake(GameObject):
     """Класс, представляющий змею в игре."""
+
+    def __init__(self, body_color=SNAKE_COLOR):
+        super().__init__(body_color)
+        self.reset()
 
     def update_direction(self):
         """Метод для обновления направления движения змеи."""
@@ -221,23 +228,23 @@ def main():
     яблока, камней и запускает основной игровой цикл.
     """
     pg.init()
-    snake = Snake(SNAKE_COLOR)
+    snake = Snake()
+    stones = Stones()
     apple = Apple(APPLE_COLOR)
-    stones = Stones(STONE_COLOR)
     apple.randomize_position(snake.positions)
     while True:
         snake.draw()
         apple.draw()
         stones.draw()
         clock.tick(SPEED)
-        if handle_keys(snake):  # Для логики работы кода это условие необходимо
+        if handle_keys(snake):
             if snake.get_head_position == apple.position:
                 apple.randomize_position(
                     snake.positions + stones.positions)
                 snake.length += 1
                 if snake.length % 3 == 0:
                     stones.randomize_position(
-                        snake.positions + apple.positions)
+                        snake.positions + [apple.position])
             elif (snake.get_head_position in stones.positions
                     + snake.positions[3:]):
                 snake.clear()
