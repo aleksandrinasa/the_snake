@@ -70,8 +70,8 @@ class Apple(GameObject):
 
     def randomize_position(self):
         """Метод генерирующий случайные координаты на игровом поле."""
-        return ((randint(0, GRID_WIDTH) * GRID_SIZE),
-                (randint(0, GRID_HEIGHT) * GRID_SIZE))
+        return ((randint(0, GRID_WIDTH - 1) * GRID_SIZE),
+                (randint(0, GRID_HEIGHT - 1) * GRID_SIZE))
 
     def draw(self):
         """Метод отрисовывающий объект."""
@@ -86,7 +86,8 @@ class Snake(GameObject):
     def __init__(self):
         """Переропределение атрибутов родительского класса и создание новых."""
         super().__init__()
-        self.positions = [(320, 240)]
+        self.positions = [((GRID_WIDTH // 2 - 1) * GRID_SIZE,
+                           (GRID_HEIGHT // 2 - 1) * GRID_SIZE)]
         self.length = 1
         self.direction = RIGHT
         self.next_direction = None
@@ -104,40 +105,39 @@ class Snake(GameObject):
     # и удаляя последний элемент, если длина змейки не увеличилась.
     def move(self):
         """Метод способствующий передвежению объекта по игровому полю."""
-        for i in range(len(self.positions)):
-            if self.next_direction == RIGHT:
-                if self.positions[i][0] + GRID_SIZE > SCREEN_WIDTH:
-                    result = (abs(self.positions[i][0] + GRID_SIZE
-                                  - SCREEN_WIDTH), self.positions[i][1])
-                else:
-                    result = (self.positions[i][0] + GRID_SIZE,
-                              self.positions[i][1])
-            elif self.next_direction == LEFT:
-                if self.positions[i][0] + GRID_SIZE < 0:
-                    result = (abs(self.positions[i][0] - GRID_SIZE
-                                  + SCREEN_WIDTH), self.positions[i][1])
-                else:
-                    result = (self.positions[i][0] - GRID_SIZE,
-                              self.positions[i][1])
-            elif self.next_direction == UP:
-                if self.positions[i][1] - GRID_SIZE < 0:
-                    result = (self.positions[i][0],
-                              abs(self.positions[i][1]
-                                  - GRID_SIZE + SCREEN_HEIGHT))
-                else:
-                    result = (self.positions[i][0], self.positions[i][1]
-                              - GRID_SIZE)
-            elif self.next_direction == DOWN:
-                if self.positions[i][1] + GRID_SIZE > SCREEN_HEIGHT:
-                    result = (self.positions[i][0], self.positions[i][1]
-                              + GRID_SIZE - SCREEN_HEIGHT)
-                else:
-                    result = (self.positions[i][0],
-                              self.positions[i][1] + GRID_SIZE)
-            self.positions.insert(i, result)
-            if self.positions[0] != Apple().position:
-                self.positions.pop()
-            print(self.positions)
+        if self.next_direction == RIGHT:
+            if self.positions[0][0] + GRID_SIZE > SCREEN_WIDTH - GRID_SIZE:
+                result = (abs(self.positions[0][0] + GRID_SIZE
+                              - SCREEN_WIDTH), self.positions[0][1])
+            else:
+                result = (self.positions[0][0] + GRID_SIZE,
+                          self.positions[0][1])
+        elif self.next_direction == LEFT:
+            if self.positions[0][0] - GRID_SIZE == -GRID_SIZE:
+                result = (abs(self.positions[0][0] - GRID_SIZE
+                          + SCREEN_WIDTH), self.positions[0][1])
+            else:
+                result = (self.positions[0][0] - GRID_SIZE,
+                          self.positions[0][1])
+        elif self.next_direction == UP:
+            if self.positions[0][1] - GRID_SIZE == -GRID_SIZE:
+                result = (self.positions[0][0],
+                          abs(self.positions[0][1]
+                              - GRID_SIZE + SCREEN_HEIGHT))
+            else:
+                result = (self.positions[0][0], self.positions[0][1]
+                          - GRID_SIZE)
+        elif self.next_direction == DOWN:
+            if self.positions[0][1] + GRID_SIZE > SCREEN_HEIGHT - GRID_SIZE:
+                result = (self.positions[0][0], abs(self.positions[0][1]
+                          + GRID_SIZE - SCREEN_HEIGHT))
+            else:
+                result = (self.positions[0][0],
+                          self.positions[0][1] + GRID_SIZE)
+        self.positions.insert(0, result)
+        self.positions.pop()
+        print(self.positions, self.get_head_position)
+
     def draw(self):
         """Метод отрисовывающий объект."""
         for position in self.positions:
@@ -155,16 +155,23 @@ class Snake(GameObject):
                 last_rect = pygame.Rect(self.last, (GRID_SIZE, GRID_SIZE))
                 pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
+    @property
     def get_head_position(self):
         """Метод возвращающий голову объекта."""
         return (self.positions)[0]
 
     def reset(self):
         """Метод возвращающий объект в исходное состояние."""
+        self.clear()
         self.length = 1
         self.positions = [(320, 240)]
         self.direction = choice(STEPS)
 
+    def clear(self):
+        """Метод очищающий поле во время столкновение объекта с самим собой."""
+        for i in range(len(self.positions)):
+            rect = pygame.Rect(self.positions[i], (GRID_SIZE, GRID_SIZE))
+            pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, rect)
 
 def handle_keys(game_object):
     """Функция обрабатывающая нажатие клавиш."""
@@ -203,16 +210,17 @@ def main():
             running = False
         if apple.position in snake.positions:
             apple.randomize_position()
-        if len(snake.positions) > 1:
-            count = 0
-            for i in range(len(snake.positions)):
-                if snake.positions[i] == snake.get_head_position:
-                    count += 1
-            if count == 2:
-                snake.reset()
+        count = 0
+        for i in range(len(snake.positions)):
+            if snake.positions[i] == snake.get_head_position:
+                count += 1
+        if count == 2:
+            print(1)
+            snake.reset()
         if snake.positions[0] == apple.position:
             snake.length += 1
-            snake.positions.append(apple.position)
+            snake.positions.append(snake.last)
+            snake.last = None
             apple.__init__()
         snake.draw()
         apple.draw()
